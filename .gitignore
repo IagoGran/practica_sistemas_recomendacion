@@ -1,3 +1,13 @@
+# venv
+SR_venv/
+
+# dataset
+data/
+*.csv
+*.json
+*.gz
+*.zip
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
