@@ -1,6 +1,6 @@
 from math import log2
 from typing import List, Set, Dict
-from utils.playlist_processing import load_playlists_from_file
+from global_utils.playlist_preprocessing import load_playlists_from_file
 
 # ----------------------------
 # Evaluation (offline, usando test_eval as gold)
