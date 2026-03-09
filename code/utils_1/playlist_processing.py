@@ -3,19 +3,8 @@ import os
 from typing import List, Dict, Tuple
 import numpy as np
 from scipy.sparse import csr_matrix
+from global_utils.playlist_preprocessing import iter_playlists_from_dir
 
-
-def load_playlists_from_file(filepath: str) -> List[dict]:
-    with open(filepath, "r", encoding="utf-8") as f:
-        data = json.load(f)
-    return data.get("playlists", [])
-
-def iter_playlists_from_dir(folder: str):
-    for fn in os.listdir(folder):
-        if fn.endswith(".json"):
-            path = os.path.join(folder, fn)
-            for pl in load_playlists_from_file(path):
-                yield pl
 
 def build_tracks_matrix(train_dir: str) -> Tuple[csr_matrix, Dict[str, int], Dict[int, int]]:
     """
@@ -72,22 +61,6 @@ def build_tracks_matrix(train_dir: str) -> Tuple[csr_matrix, Dict[str, int], Dic
     X.sum_duplicates()  # por si acaso
 
     return X, track_to_idx, pid_to_row
-
-def popularity_from_matrix(X: csr_matrix, track_to_idx: Dict[str, int]) -> List[Tuple[str, int]]:
-    """
-    Dada la matriz Playlist-Track, devuelve una lista de (track_uri, count) ordenada por count desc.
-    """
-    track_popularity = np.array(X.sum(axis=0)).flatten()  # suma por columnas
-    idx_to_track = {idx: uri for uri, idx in track_to_idx.items()}
-    popularity_list = [(idx_to_track[idx], count) for idx, count in enumerate(track_popularity)]
-    # ordenamos por count desc
-    popularity_list.sort(key=lambda x: x[1], reverse=True)
-    return popularity_list
-
-def build_global_popularity(train_dir: str) -> List[Tuple[str, int]]:
-    X, track_to_idx, _ = build_tracks_matrix(train_dir)
-    popularity_list = popularity_from_matrix(X, track_to_idx)
-    return popularity_list
 
 def recommend_for_playlist(seed: set, popularity_list: List[Tuple[str, int]], k: int = 500) -> List[str]:
     """

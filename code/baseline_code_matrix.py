@@ -2,7 +2,7 @@
 from typing import List, Dict
 from global_utils.playlist_preprocessing import load_playlists_from_file
 from utils_0.playlist_processing import build_global_popularity, recommend_for_playlist
-from utils_0.submission_writer import write_submission_csv, gzip_file
+from global_utils.submission_writer import write_submission_csv, gzip_file
 from global_utils.evaluation import r_precision, ndcg_at_k, recommended_songs_clicks, build_gold_from_eval_playlists
 
 # ----------------------------
