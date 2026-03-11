@@ -65,7 +65,7 @@ The info field is a dictionary that contains general information about the parti
 This is an array that typically contains 1,000 playlists. Each playlist is a dictionary that contains the following fields:
 
 
-* ***pid*** - integer - playlist id - the MPD ID of this playlist. This is an integer between 0 and 999,999.
+* ***playlist_id*** - integer - playlist id - the MPD ID of this playlist. This is an integer between 0 and 999,999.
 * ***name*** - string - the name of the playlist 
 * ***description*** - optional string - if present, the description given to the playlist.  Note that user-provided playlist descrptions are a relatively new feature of Spotify, so most playlists do not have descriptions.
 * ***modified_at*** - seconds - timestamp (in seconds since the epoch) when this playlist was last updated. Times are rounded to midnight GMT of the date when the playlist was last updated.
@@ -91,7 +91,7 @@ Here's an example of a typical playlist entry:
         {
             "name": "musical",
             "collaborative": "false",
-            "pid": 5,
+            "playlist_id": 5,
             "modified_at": 1493424000,
             "num_albums": 7,
             "num_tracks": 12,

@@ -24,25 +24,25 @@ def build_tracks_matrix(train_dir: str) -> Tuple[csr_matrix, Dict[str, int], Dic
       - filas = playlists
       - columnas = tracks
       - valor = 1 si el track aparece en la playlist
-    Devuelve: (matrix, track_to_idx, pid_to_row)
+    Devuelve: (matrix, track_to_idx, playlist_id_to_row)
     """
     track_to_idx: Dict[str, int] = {}
-    pid_to_row: Dict[int, int] = {}
+    playlist_id_to_row: Dict[int, int] = {}
 
     rows = []
     cols = []
     values = []
 
     for pl in iter_playlists_from_dir(train_dir):
-        pid = pl.get("pid")
-        if pid is None:
+        playlist_id = pl.get("playlist_id")
+        if playlist_id is None:
             continue
 
         # asigna índice de fila a cada playlist
-        row = pid_to_row.get(pid)
+        row = playlist_id_to_row.get(playlist_id)
         if row is None:
-            row = len(pid_to_row)
-            pid_to_row[pid] = row
+            row = len(playlist_id_to_row)
+            playlist_id_to_row[playlist_id] = row
 
         # para evitar duplicados dentro de la misma playlist
         seen_in_playlist = set()
@@ -62,7 +62,7 @@ def build_tracks_matrix(train_dir: str) -> Tuple[csr_matrix, Dict[str, int], Dic
             cols.append(col)
             values.append(1)
 
-    n_playlists = len(pid_to_row)
+    n_playlists = len(playlist_id_to_row)
     n_tracks = len(track_to_idx)
 
     X = csr_matrix(
@@ -72,7 +72,7 @@ def build_tracks_matrix(train_dir: str) -> Tuple[csr_matrix, Dict[str, int], Dic
     )
     X.sum_duplicates()  # por si acaso
 
-    return X, track_to_idx, pid_to_row
+    return X, track_to_idx, playlist_id_to_row
 
 def popularity_from_matrix(X: csr_matrix, track_to_idx: Dict[str, int]) -> List[Tuple[str, int]]:
     """
@@ -113,25 +113,25 @@ def write_submission_csv(results: Dict[int, List[str]],
                         team_name: str,
                         email: str,
                         add_spaces: bool = True,
-                        sort_pids: bool = True):
+                        sort_playlist_ids: bool = True):
     """
     Formato tipo sample_submission.csv
     team_info,Team,Email
-    pid, track1, ..., track500
+    playlist_id, track1, ..., track500
     """
     sep = ", " if add_spaces else ","
 
-    pids = sorted(results.keys()) if sort_pids else list(results.keys())
+    playlist_ids = sorted(results.keys()) if sort_playlist_ids else list(results.keys())
 
     with open(out_csv_path, "w", encoding="utf-8") as f:
         f.write(f"team_info{sep}{team_name}{sep}{email}\n\n")
-        for pid in pids:
-            recs = results[pid]
+        for playlist_id in playlist_ids:
+            recs = results[playlist_id]
             if len(recs) != 500:
-                raise ValueError(f"PID {pid}: esperado 500 recomendaciones, generado {len(recs)}")
+                raise ValueError(f"playlist_id {playlist_id}: esperado 500 recomendaciones, generado {len(recs)}")
             if len(set(recs)) != 500:
-                raise ValueError(f"PID {pid}: hay duplicados en las recomendaciones")
-            f.write(str(pid) + sep + sep.join(recs) + "\n")
+                raise ValueError(f"playlist_id {playlist_id}: hay duplicados en las recomendaciones")
+            f.write(str(playlist_id) + sep + sep.join(recs) + "\n")
 
 def gzip_file(in_path: str, out_path: str):
     with open(in_path, "rb") as f_in, gzip.open(out_path, "wb") as f_out:
@@ -195,12 +195,12 @@ def build_gold_from_eval_playlists(test_eval_file: str) -> Dict[int, Set[str]]:
     gold = tracks completos del eval (toda la playlist) MINUS seed_del_input.
     """
     eval_playlists = load_playlists_from_file(test_eval_file)
-    gold_by_pid = {}
+    gold_by_playlist_id = {}
     for pl in eval_playlists:
-        pid = pl["pid"]
+        playlist_id = pl["playlist_id"]
         all_tracks = {tr["track_uri"] for tr in pl.get("tracks", []) if "track_uri" in tr}
-        gold_by_pid[pid] = all_tracks
-    return gold_by_pid
+        gold_by_playlist_id[playlist_id] = all_tracks
+    return gold_by_playlist_id
 
 
 # ----------------------------
@@ -230,24 +230,24 @@ def main():
     results: Dict[int, List[str]] = {}
 
     for pl in input_playlists:
-        pid = pl["pid"]
+        playlist_id = pl["playlist_id"]
         seed = {tr["track_uri"] for tr in pl.get("tracks", []) if "track_uri" in tr}
 
         recs = recommend_for_playlist(seed, popular_list, k=500)
 
         # Validaciones básicas del submission
         if len(recs) != 500:
-            raise ValueError(f"PID {pid}: esperado 500 recomendaciones, generado {len(recs)}. "
+            raise ValueError(f"playlist_id {playlist_id}: esperado 500 recomendaciones, generado {len(recs)}. "
                             f"Sube most_common() o revisa datos.")
         if len(set(recs)) != 500:
-            raise ValueError(f"PID {pid}: duplicados en recomendaciones (no debería pasar).")
+            raise ValueError(f"playlist_id {playlist_id}: duplicados en recomendaciones (no debería pasar).")
         if any(t in seed for t in recs):
-            raise ValueError(f"PID {pid}: se coló un seed en recomendaciones (no debería pasar).")
+            raise ValueError(f"playlist_id {playlist_id}: se coló un seed en recomendaciones (no debería pasar).")
 
-        results[pid] = recs
+        results[playlist_id] = recs
 
     # 4) Escribir submission + gzip
-    write_submission_csv(results, out_csv, team_name, email, add_spaces=True, sort_pids=True)
+    write_submission_csv(results, out_csv, team_name, email, add_spaces=True, sort_playlist_ids=True)
     gzip_file(out_csv, out_gz)
 
     print(f"OK -> {out_csv} y {out_gz} generados. Playlists: {len(results)}")
@@ -256,9 +256,9 @@ def main():
     # Construimos gold como: eval_tracks - seed_tracks (del input)
     gold_all = build_gold_from_eval_playlists(test_eval_file)
 
-    # Mapa seed por pid desde input
-    seed_by_pid = {
-        pl["pid"]: {tr["track_uri"] for tr in pl.get("tracks", []) if "track_uri" in tr}
+    # Mapa seed por playlist_id desde input
+    seed_by_playlist_id = {
+        pl["playlist_id"]: {tr["track_uri"] for tr in pl.get("tracks", []) if "track_uri" in tr}
         for pl in input_playlists
     }
 
@@ -266,9 +266,9 @@ def main():
     ndcg_list = []
     clicks_list = []
 
-    for pid, recs in results.items():
-        all_eval_tracks = gold_all.get(pid, set())
-        seed = seed_by_pid.get(pid, set())
+    for playlist_id, recs in results.items():
+        all_eval_tracks = gold_all.get(playlist_id, set())
+        seed = seed_by_playlist_id.get(playlist_id, set())
         gold = all_eval_tracks - seed  # holdouts esperados
 
         rp_list.append(r_precision(recs, gold))
