@@ -96,6 +96,9 @@ def build_global_popularity(
                                 Dict[int, int],
                                 List[Tuple[str, int]]
                             ]:
+    """
+    Construye la matriz Playlist-Track y la lista de popularidad global a partir del directorio de entrenamiento.
+    """
     X, track_to_idx, idx_to_track, playlist_id_to_row, row_to_playlist_id = build_tracks_matrix(train_dir)
     popularity_list = popularity_from_matrix(X, track_to_idx)
     return X, track_to_idx, idx_to_track, playlist_id_to_row, row_to_playlist_id, popularity_list
@@ -104,6 +107,10 @@ def _seed_tracks_to_indices(
     seed_tracks: Set[str],
     track_to_idx: Dict[str, int]
 ) -> List[int]:
+    """
+    Dado un set de track URIs y el diccionario track_to_idx, devuelve la lista de índices de esos tracks que existen en track_to_idx.
+    """
+
     return [track_to_idx[t] for t in seed_tracks if t in track_to_idx]
 
 def _collect_playlist_overlaps(
@@ -111,6 +118,10 @@ def _collect_playlist_overlaps(
     XT: csr_matrix,
     max_playlist_freq_per_seed_track: Optional[int]
 ) -> Dict[int, int]:
+    """
+    Devuelve un dict playlist_row -> count de cuántos tracks semilla aparecen en esa playlist.
+    Si max_playlist_freq_per_seed_track es no None, se ignoran las playlists que contienen más de ese número de tracks semilla.
+    """
 
     playlist_overlap: Dict[int, int] = defaultdict(int)
 
@@ -133,7 +144,11 @@ def _compute_candidate_similarities(
     playlist_norms: np.ndarray,
     seed_len: int
 ) -> Tuple[np.ndarray, np.ndarray]:
-
+    """
+    Dado el dict playlist_row -> overlap_count, devuelve dos arrays:
+    - candidate_rows: array de filas candidatas (playlists)
+    - sims: array de similitudes (overlap_count / (norm(semilla) * norm(playlist)))
+    """
     seed_norm = np.sqrt(seed_len).astype(np.float32)
 
     candidate_rows = np.fromiter(playlist_overlap.keys(), dtype=np.int32)
@@ -157,7 +172,9 @@ def _select_top_neighbors(
     sims: np.ndarray,
     top_neighbors: int
 ) -> Tuple[np.ndarray, np.ndarray]:
-
+    """
+    Dado un array de filas candidatas y sus similitudes, devuelve solo las top_neighbors filas con mayor similitud.
+    """
     if len(candidate_rows) > top_neighbors:
         idx = np.argpartition(sims, -top_neighbors)[-top_neighbors:]
         candidate_rows = candidate_rows[idx]
@@ -173,7 +190,9 @@ def _accumulate_track_scores(
     X: csr_matrix,
     seed_track_idx_set: Set[int]
 ) -> Dict[int, float]:
-
+    """
+    Acumula las puntuaciones de los tracks basadas en las similitudes con las playlists candidatas.
+    """
     track_scores: Dict[int, float] = defaultdict(float)
 
     for row, sim in zip(candidate_rows, sims):
@@ -192,7 +211,10 @@ def _build_recommendations_from_scores(
     seed_tracks: Set[str],
     k: int
 ) -> Tuple[List[str], Set[str]]:
-
+    """
+    Dado un dict track_idx -> score, construye la lista de recomendaciones ordenada por score desc.
+    Devuelve la lista de recomendaciones y el set de tracks ya añadidos (para evitar duplicados al rellenar con popularidad).
+    """
     recs: List[str] = []
     already_added: Set[str] = set()
 
@@ -218,7 +240,11 @@ def _fill_with_popularity(
     popularity_list: List[Tuple[str, int]],
     k: int
 ) -> List[str]:
-
+    """
+    Dada una lista de recomendaciones ya construida y un set de tracks ya añadidos,
+    rellena la lista de recomendaciones con los tracks más populares que no estén en seed_tracks ni en already_added,
+    hasta tener k recomendaciones.
+    """
     for track_uri, _ in popularity_list:
 
         if track_uri not in seed_tracks and track_uri not in already_added:
@@ -242,7 +268,22 @@ def recommend_for_seed_playlist_fast(
     top_neighbors: int = 1000,
     max_playlist_freq_per_seed_track: Optional[int] = 50000
 ) -> List[str]:
+    """
+    Recomendación para una playlist semilla basada en similitud de coseno con playlists candidatas.
+    Se siguen los siguientes pasos:
+    1. Convertir los tracks semilla a índices usando track_to_idx.
+    2. Para cada track semilla, obtener las playlists candidatas que lo contienen usando XT.
+       Si max_playlist_freq_per_seed_track es no None, se ignoran las playlists que contienen más de ese número de tracks semilla.
+    3. Contar el número de tracks semilla que aparecen en cada playlist candidata (overlap).
+    4. Calcular la similitud coseno entre la semilla y cada playlist candidata usando el overlap y las normas.
+    5. Seleccionar las top_neighbors playlists candidatas con mayor similitud.
+    6. Acumular una puntuación para cada track basado en la similitud de las playlists candidatas que lo contienen.
+    7. Construir la lista de recomendaciones ordenada por puntuación, excluyendo tracks semilla.
+    8. Si no se alcanzan k recomendaciones, rellenar con los tracks más populares que no estén en seed_tracks ni en las recomendaciones ya añadidas.
 
+    Returns:
+    - recs: lista de track URIs recomendados
+    """
     seed_track_idxs = _seed_tracks_to_indices(seed_tracks, track_to_idx)
 
     if not seed_track_idxs:

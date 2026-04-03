@@ -9,6 +9,9 @@ import heapq
 # ==========================
 
 def compute_track_frequencies(X: csr_matrix) -> np.ndarray:
+    """
+    Dado la matriz Playlist-Track, devuelve un array con la frecuencia de cada track (número de playlists en las que aparece).
+    """
     return np.asarray(X.sum(axis=0)).ravel().astype(np.int32)
 
 
@@ -16,6 +19,9 @@ def _seed_tracks_to_indices(
     seed_tracks: Set[str],
     track_to_idx: Dict[str, int]
 ) -> List[int]:
+    """
+    Dado un set de track URIs y el diccionario track_to_idx, devuelve la lista de índices de esos tracks que existen en track_to_idx.
+    """
     return [track_to_idx[t] for t in seed_tracks if t in track_to_idx]
 
 
@@ -24,7 +30,10 @@ def _compute_seed_weight(
     track_freqs: np.ndarray,
     n_playlists: int
 ) -> float:
-
+    """
+    Calcula el peso de un track semilla basado en su frecuencia (IDF-like), para dar más importancia a tracks menos frecuentes.
+    Si el track no aparece en ninguna playlist, devuelve 0.0.
+    """
     df = track_freqs[seed_track_idx]
     if df <= 0:
         return 0.0
@@ -39,7 +48,10 @@ def _fill_with_popularity(
     popularity_list: List[Tuple[str, int]],
     k: int
 ) -> List[str]:
-
+    """
+    Dada una lista de recomendaciones ya construida y un set de tracks ya añadidos,
+    rellena la lista de recomendaciones con los tracks más populares que no estén en seed_tracks ni en already
+    """
     for track_uri, _ in popularity_list:
 
         if track_uri not in seed_tracks and track_uri not in already_added:
@@ -61,7 +73,10 @@ def extract_unique_seed_track_idxs(
     input_playlists: List[dict],
     track_to_idx: Dict[str, int]
 ) -> List[int]:
-
+    """
+    Dado una lista de playlists de entrada y el diccionario track_to_idx,
+    devuelve la lista ordenada de índices únicos de tracks que aparecen en las playlists de entrada y que existen en track_to_idx.
+    """
     unique_seed_track_idxs: Set[int] = set()
 
     for pl in input_playlists:
@@ -88,7 +103,11 @@ def _collect_cooccurring_tracks_for_seed(
     max_playlists_per_seed_track: Optional[int],
     min_cooccurrence: int = 2
 ) -> Dict[int, int]:
-
+    """
+    Dado el índice de un track semilla, la matriz Playlist-Track y su transpuesta, y los parámetros de limitación,
+    devuelve un diccionario track_idx -> cooc_count para los tracks que coocurren con eltrack semilla en al menos min_cooccurrence playlists,
+    considerando solo hasta max_playlists_per_seed_track playlists para el track semilla.
+    """
     cooc_counts: Dict[int, int] = defaultdict(int)
 
     playlist_rows = XT[seed_track_idx].indices
@@ -137,30 +156,32 @@ def _compute_track_to_track_scores(
     track_freqs: np.ndarray,
     min_similarity: float = 0.0
 ) -> Dict[int, float]:
-
+    """
+    Dado el índice de un track semilla,
+    un diccionario track_idx -> cooc_count para tracks que coocurren con el track semilla,
+    un array con la frecuencia de cada track, y un umbral de similitud mínima,
+    devuelve un diccionario track_idx -> similitud_coseno para los tracks
+    que tienen similitud coseno con el track semilla mayor o igual a min_similarity.
+    La similitud coseno se calcula como cooc_count / sqrt(df_i * df_j),
+    donde df_i y df_j son las frecuencias del track semilla y el track candidato respectivamente.
+    """
     scores: Dict[int, float] = {}
-
     df_i = track_freqs[seed_track_idx]
 
     if df_i <= 0:
         return scores
 
     for other_track_idx, cooc in cooc_counts.items():
-
         df_j = track_freqs[other_track_idx]
-
         if df_j <= 0:
             continue
 
         denom = np.sqrt(df_i * df_j)
-
         if denom <= 0:
             continue
-
         sim = float(cooc) / float(denom)
 
         if sim >= min_similarity:
-
             scores[other_track_idx] = sim
 
     return scores
@@ -180,7 +201,14 @@ def precompute_neighbors_for_seed_track(
     min_similarity: float = 0.01,
     top_k_per_seed_track: Optional[int] = 100
 ) -> List[Tuple[int, float]]:
-
+    """
+    Dado el índice de un track semilla, las matrices Playlist-Track y su transpuesta,
+    el array de frecuencias de tracks, y los parámetros de limitación,
+    devuelve una lista de tuplas (track_idx, similitud) para los tracks vecinos del track semilla,
+    ordenados por similitud descendente, considerando solo los tracks que coocurren con el track semilla en al menos min_cooccurrence playlists,
+    que tienen similitud coseno con el track semilla mayor o igual a min_similarity,
+    y limitando a top_k_per_seed_track vecinos por track semilla si se especifica.
+    """
     cooc_counts = _collect_cooccurring_tracks_for_seed(
         seed_track_idx,
         X,
@@ -243,7 +271,7 @@ def init_worker_precompute(
     min_similarity,
     top_k_per_seed_track
 ):
-
+    
     global GP_X, GP_XT, GP_TRACK_FREQS
     global GP_MAX_PLAYLISTS_PER_SEED_TRACK
     global GP_MIN_COOCCURRENCE
