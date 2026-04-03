@@ -14,7 +14,21 @@ def evaluate_results(
     test_eval_file: str,
 ) -> Dict[str, float]:
     """
-    Evaluate recommendation results for the test playlists.
+    Evaluate recommendation results for the ordered test playlists.
+
+    Parameters
+    ----------
+    results:
+        Mapping from playlist id to the ordered recommendation list.
+    input_playlists:
+        Ordered test playlists as they were queried.
+    test_eval_file:
+        JSON file containing the full evaluation playlists.
+
+    Returns
+    -------
+    Dict[str, float]
+        Mean values of ``r_precision``, ``ndcg`` and ``clicks``.
     """
     gold_all = build_gold_from_eval_playlists(test_eval_file)
 
@@ -36,6 +50,7 @@ def evaluate_results(
         seed_tracks = seed_by_pid.get(pid, set())
         gold_tracks = all_eval_tracks - seed_tracks
 
+        # This guards against accidental leakage of the visible seed tracks.
         if any(track in seed_tracks for track in recommendations):
             raise ValueError(
                 f"[eval] pid {pid}: hay tracks seed colados en la recomendacion"

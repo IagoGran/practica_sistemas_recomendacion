@@ -15,7 +15,22 @@ def append_playlists_from_dir_to_matrix_data(
     cols: List[int],
 ) -> None:
     """
-    Process playlists from a directory and update sparse-matrix buffers.
+    Append the playlists of one directory to the buffers of a sparse matrix.
+
+    Parameters
+    ----------
+    dataset_dir:
+        Directory containing playlist JSON files.
+    playlist_id_to_row:
+        Mapping from playlist id to row index. It is updated in place.
+    row_to_playlist_id:
+        Reverse mapping from row index to playlist id. It is updated in place.
+    track_to_idx:
+        Mapping from track URI to column index. It is updated in place.
+    rows:
+        Row buffer used later to build the sparse matrix.
+    cols:
+        Column buffer used later to build the sparse matrix.
     """
     playlist_id_to_row_get = playlist_id_to_row.get
     track_to_idx_get = track_to_idx.get
@@ -33,6 +48,7 @@ def append_playlists_from_dir_to_matrix_data(
             playlist_id_to_row[playlist_id] = row
             row_to_playlist_id[row] = playlist_id
 
+        # Each playlist contributes at most one interaction per track URI.
         seen_in_playlist = set()
 
         for track in playlist.get("tracks", []):
@@ -57,7 +73,28 @@ def build_tracks_matrix(
     verbose: bool = False,
 ) -> Tuple[csr_matrix, Dict[str, int], Dict[int, str], Dict[int, int], Dict[int, int]]:
     """
-    Build a playlist-track matrix from train and, optionally, test playlists.
+    Build the playlist-track matrix used by PureSVD.
+
+    Parameters
+    ----------
+    train_dir:
+        Directory containing the training playlist JSON files.
+    test_dir:
+        Optional directory containing the test playlist JSON files. When
+        provided, train and test are appended into the same joint matrix.
+    verbose:
+        Whether to print progress information while building the matrix.
+
+    Returns
+    -------
+    Tuple[csr_matrix, Dict[str, int], Dict[int, str], Dict[int, int], Dict[int, int]]
+        Joint tuple containing:
+
+        - the sparse playlist-track matrix
+        - ``track_uri -> column`` mapping
+        - ``column -> track_uri`` mapping
+        - ``playlist_id -> row`` mapping
+        - ``row -> playlist_id`` mapping
     """
     track_to_idx: Dict[str, int] = {}
     playlist_id_to_row: Dict[int, int] = {}
@@ -113,6 +150,7 @@ def build_tracks_matrix(
         dtype=np.uint8,
     )
     matrix.sum_duplicates()
+    matrix.sort_indices()
 
     idx_to_track: Dict[int, str] = {
         idx: track_uri for track_uri, idx in track_to_idx.items()
@@ -131,4 +169,3 @@ def build_tracks_matrix(
         playlist_id_to_row,
         row_to_playlist_id,
     )
-

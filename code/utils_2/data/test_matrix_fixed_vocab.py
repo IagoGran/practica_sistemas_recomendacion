@@ -15,7 +15,22 @@ def append_test_playlists_with_fixed_vocab(
     cols: List[int],
 ) -> None:
     """
-    Process test playlists using only the vocabulary learned from train.
+    Append test playlists to sparse-matrix buffers using a fixed train vocabulary.
+
+    Parameters
+    ----------
+    dataset_dir:
+        Directory containing test playlist JSON files.
+    playlist_id_to_row:
+        Mapping from playlist id to row index. It is updated in place.
+    row_to_playlist_id:
+        Reverse mapping from row index to playlist id. It is updated in place.
+    track_to_idx:
+        Vocabulary learned from train, expressed as ``track_uri -> column``.
+    rows:
+        Row buffer used later to build the sparse matrix.
+    cols:
+        Column buffer used later to build the sparse matrix.
     """
     playlist_id_to_row_get = playlist_id_to_row.get
     track_to_idx_get = track_to_idx.get
@@ -33,6 +48,7 @@ def append_test_playlists_with_fixed_vocab(
             playlist_id_to_row[playlist_id] = row
             row_to_playlist_id[row] = playlist_id
 
+        # Duplicate seed tracks inside the same playlist are ignored on purpose.
         seen_in_playlist = set()
 
         for track in playlist.get("tracks", []):
@@ -56,7 +72,25 @@ def build_test_matrix_fixed_vocab(
     verbose: bool = False,
 ) -> Tuple[csr_matrix, Dict[int, int], Dict[int, int]]:
     """
-    Build the test playlist-track matrix using the train vocabulary only.
+    Build the test playlist-track matrix using only the train vocabulary.
+
+    Parameters
+    ----------
+    test_dir:
+        Directory containing the test playlist JSON files.
+    track_to_idx:
+        Vocabulary learned from train, expressed as ``track_uri -> column``.
+    verbose:
+        Whether to print progress information while building the matrix.
+
+    Returns
+    -------
+    Tuple[csr_matrix, Dict[int, int], Dict[int, int]]
+        Tuple containing:
+
+        - the sparse test matrix
+        - ``playlist_id -> row`` mapping
+        - ``row -> playlist_id`` mapping
     """
     playlist_id_to_row: Dict[int, int] = {}
     row_to_playlist_id: Dict[int, int] = {}
@@ -96,6 +130,7 @@ def build_test_matrix_fixed_vocab(
         dtype=np.uint8,
     )
     matrix.sum_duplicates()
+    matrix.sort_indices()
 
     if verbose:
         print(

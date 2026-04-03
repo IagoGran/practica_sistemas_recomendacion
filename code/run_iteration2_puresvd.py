@@ -14,9 +14,12 @@ def main() -> None:
     email = "i.gdelrio@udc.es"
 
     num_factors = 128
-    num_workers = 4
+    num_workers = 6
     chunk_size = 250
     top_k = 500
+    item_block_size = 50_000
+    parallel_backend = "thread"
+    verbose = True
 
     input_playlists = load_playlists_from_file(test_input_file)
     print("Playlists test:", len(input_playlists))
@@ -30,6 +33,9 @@ def main() -> None:
         num_workers=num_workers,
         chunk_size=chunk_size,
         top_k=top_k,
+        item_block_size=item_block_size,
+        parallel_backend=parallel_backend,
+        verbose=verbose,
     )
     metrics_a = evaluate_results(results_a, input_playlists, test_eval_file)
 
@@ -52,6 +58,9 @@ def main() -> None:
         num_workers=num_workers,
         chunk_size=chunk_size,
         top_k=top_k,
+        item_block_size=item_block_size,
+        parallel_backend=parallel_backend,
+        verbose=verbose,
     )
     metrics_b = evaluate_results(results_b, input_playlists, test_eval_file)
 
