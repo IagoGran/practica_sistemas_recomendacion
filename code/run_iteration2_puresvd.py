@@ -24,7 +24,7 @@ def main() -> None:
     input_playlists = load_playlists_from_file(test_input_file)
     print("Playlists test:", len(input_playlists))
 
-    results_a, time_a = run_variant_a(
+    results_a, timings_a = run_variant_a(
         train_dir=train_dir,
         test_dir=test_dir,
         test_input_file=test_input_file,
@@ -49,7 +49,7 @@ def main() -> None:
     )
     gzip_file("submission_puresvd_variant_a.csv", "submission_puresvd_variant_a.csv.gz")
 
-    results_b, time_b = run_variant_b(
+    results_b, timings_b = run_variant_b(
         train_dir=train_dir,
         test_dir=test_dir,
         test_input_file=test_input_file,
@@ -79,13 +79,19 @@ def main() -> None:
     print("=" * 70)
 
     print("\nPURESVD VARIANTE A (train + test)")
-    print(f"Tiempo modelo           : {time_a:.2f}s")
+    print(f"Tiempo construccion     : {timings_a['build_matrix']:.2f}s")
+    print(f"Tiempo entrenamiento    : {timings_a['fit_model']:.2f}s")
+    print(f"Tiempo recomendacion    : {timings_a['recommend']:.2f}s")
+    print(f"Tiempo total            : {timings_a['total']:.2f}s")
     print(f"R-Precision             : {metrics_a['r_precision']:.6f}")
     print(f"NDCG@500                : {metrics_a['ndcg']:.6f}")
     print(f"Clicks                  : {metrics_a['clicks']:.6f}")
 
     print("\nPURESVD VARIANTE B (train + folding-in)")
-    print(f"Tiempo modelo           : {time_b:.2f}s")
+    print(f"Tiempo construccion     : {timings_b['build_matrix']:.2f}s")
+    print(f"Tiempo entrenamiento    : {timings_b['fit_model']:.2f}s")
+    print(f"Tiempo recomendacion    : {timings_b['recommend']:.2f}s")
+    print(f"Tiempo total            : {timings_b['total']:.2f}s")
     print(f"R-Precision             : {metrics_b['r_precision']:.6f}")
     print(f"NDCG@500                : {metrics_b['ndcg']:.6f}")
     print(f"Clicks                  : {metrics_b['clicks']:.6f}")
@@ -100,7 +106,10 @@ def main() -> None:
     print(f"Delta R-Precision       : {metrics_a['r_precision'] - metrics_b['r_precision']:.6f}")
     print(f"Delta NDCG@500          : {metrics_a['ndcg'] - metrics_b['ndcg']:.6f}")
     print(f"Delta Clicks            : {metrics_a['clicks'] - metrics_b['clicks']:.6f}")
-    print(f"Delta Tiempo total      : {time_a - time_b:.2f}s")
+    print(f"Delta Construccion      : {timings_a['build_matrix'] - timings_b['build_matrix']:.2f}s")
+    print(f"Delta Entrenamiento     : {timings_a['fit_model'] - timings_b['fit_model']:.2f}s")
+    print(f"Delta Recomendacion     : {timings_a['recommend'] - timings_b['recommend']:.2f}s")
+    print(f"Delta Tiempo total      : {timings_a['total'] - timings_b['total']:.2f}s")
 
 
 if __name__ == "__main__":

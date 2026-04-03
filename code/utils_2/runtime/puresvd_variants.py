@@ -12,6 +12,9 @@ from utils_2.model.pure_svd_recommender import PureSVDRecommender
 from utils_2.runtime.pure_svd_workers import run_puresvd_parallel
 
 
+VariantTimings = Dict[str, float]
+
+
 def _build_local_row_to_pid(input_playlists: List[dict]) -> Dict[int, int]:
     """
     Build the local row-to-playlist-id mapping used by the query matrix.
@@ -30,6 +33,30 @@ def _build_local_row_to_pid(input_playlists: List[dict]) -> Dict[int, int]:
         row_idx: playlist["pid"]
         for row_idx, playlist in enumerate(input_playlists)
     }
+
+
+def _log_phase_timing(
+    variant_label: str,
+    phase_name: str,
+    elapsed_seconds: float,
+    verbose: bool,
+) -> None:
+    """
+    Print the elapsed time of one execution phase when verbose mode is enabled.
+
+    Parameters
+    ----------
+    variant_label:
+        Short label used to identify the experiment variant in logs.
+    phase_name:
+        Human-readable phase name.
+    elapsed_seconds:
+        Measured execution time in seconds.
+    verbose:
+        Whether progress logs are enabled.
+    """
+    if verbose:
+        print(f"[{variant_label}] {phase_name}: {elapsed_seconds:.2f}s")
 
 
 def _build_test_view_model(
@@ -88,7 +115,7 @@ def run_variant_a(
     item_block_size: Optional[int] = 50_000,
     parallel_backend: Literal["thread", "process"] = "thread",
     verbose: bool = True,
-) -> Tuple[Dict[int, List[str]], float]:
+) -> Tuple[Dict[int, List[str]], VariantTimings]:
     """
     Execute PureSVD variant A over the iteration-2 dataset.
 
@@ -122,8 +149,9 @@ def run_variant_a(
 
     Returns
     -------
-    Tuple[Dict[int, List[str]], float]
-        Pair ``(results, elapsed_seconds)``.
+    Tuple[Dict[int, List[str]], VariantTimings]
+        Pair ``(results, timings)`` where ``timings`` stores the elapsed time of
+        each main phase.
     """
     if verbose:
         print("\n" + "=" * 70)
@@ -132,11 +160,14 @@ def run_variant_a(
 
     start_time = time.time()
 
+    build_start = time.time()
     X_full, _, idx_to_track, playlist_id_to_row, _ = build_tracks_matrix(
         train_dir=train_dir,
         test_dir=test_dir,
         verbose=verbose,
     )
+    build_time = time.time() - build_start
+    _log_phase_timing("A", "Construccion de matriz", build_time, verbose)
 
     if verbose:
         print(f"[A] Shape matriz conjunta: {X_full.shape}")
@@ -147,7 +178,10 @@ def run_variant_a(
         random_state=42,
         dtype=np.float32,
     )
+    fit_start = time.time()
     model.fit(X_full)
+    fit_time = time.time() - fit_start
+    _log_phase_timing("A", "Entrenamiento", fit_time, verbose)
 
     if input_playlists is None:
         input_playlists = load_playlists_from_file(test_input_file)
@@ -170,6 +204,7 @@ def run_variant_a(
     if verbose:
         print("[A] Lanzando recomendacion paralela...")
 
+    recommend_start = time.time()
     results = run_puresvd_parallel(
         model=model_test,
         X_query=X_query,
@@ -185,9 +220,17 @@ def run_variant_a(
         verbose=verbose,
         label="PureSVD-A",
     )
+    recommend_time = time.time() - recommend_start
+    _log_phase_timing("A", "Recomendacion", recommend_time, verbose)
 
-    elapsed = time.time() - start_time
-    return results, elapsed
+    total_time = time.time() - start_time
+    timings: VariantTimings = {
+        "build_matrix": build_time,
+        "fit_model": fit_time,
+        "recommend": recommend_time,
+        "total": total_time,
+    }
+    return results, timings
 
 
 def run_variant_b(
@@ -202,7 +245,7 @@ def run_variant_b(
     item_block_size: Optional[int] = 50_000,
     parallel_backend: Literal["thread", "process"] = "thread",
     verbose: bool = True,
-) -> Tuple[Dict[int, List[str]], float]:
+) -> Tuple[Dict[int, List[str]], VariantTimings]:
     """
     Execute PureSVD variant B over the iteration-2 dataset.
 
@@ -236,8 +279,9 @@ def run_variant_b(
 
     Returns
     -------
-    Tuple[Dict[int, List[str]], float]
-        Pair ``(results, elapsed_seconds)``.
+    Tuple[Dict[int, List[str]], VariantTimings]
+        Pair ``(results, timings)`` where ``timings`` stores the elapsed time of
+        each main phase.
     """
     if verbose:
         print("\n" + "=" * 70)
@@ -246,6 +290,7 @@ def run_variant_b(
 
     start_time = time.time()
 
+    build_start = time.time()
     X_train, track_to_idx, idx_to_track, _, _ = build_tracks_matrix(
         train_dir=train_dir,
         test_dir=None,
@@ -261,6 +306,8 @@ def run_variant_b(
         track_to_idx=track_to_idx,
         verbose=verbose,
     )
+    build_time = time.time() - build_start
+    _log_phase_timing("B", "Construccion de matrices", build_time, verbose)
 
     if verbose:
         print(f"[B] Shape matriz test fixed vocab: {X_test.shape}")
@@ -271,7 +318,10 @@ def run_variant_b(
         random_state=42,
         dtype=np.float32,
     )
+    fit_start = time.time()
     model.fit(X_train)
+    fit_time = time.time() - fit_start
+    _log_phase_timing("B", "Entrenamiento", fit_time, verbose)
 
     if input_playlists is None:
         input_playlists = load_playlists_from_file(test_input_file)
@@ -288,6 +338,7 @@ def run_variant_b(
     if verbose:
         print("[B] Lanzando recomendacion paralela con folding-in...")
 
+    recommend_start = time.time()
     results = run_puresvd_parallel(
         model=model,
         X_query=X_query,
@@ -303,6 +354,15 @@ def run_variant_b(
         verbose=verbose,
         label="PureSVD-B",
     )
+    recommend_time = time.time() - recommend_start
 
-    elapsed = time.time() - start_time
-    return results, elapsed
+    _log_phase_timing("B", "Recomendacion", recommend_time, verbose)
+
+    total_time = time.time() - start_time
+    timings: VariantTimings = {
+        "build_matrix": build_time,
+        "fit_model": fit_time,
+        "recommend": recommend_time,
+        "total": total_time,
+    }
+    return results, timings
