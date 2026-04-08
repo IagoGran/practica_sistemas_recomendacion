@@ -1,3 +1,18 @@
+# venv
+SR_venv/
+
+# dataset
+/data/
+*.csv
+*.json
+*.gz
+*.zip
+
+# Entregas
+IagoGrandalDelRio_iteracion1/
+IagoGrandalDelRio_iteracion2/
+IagoGrandalDelRio_iteracion3/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
