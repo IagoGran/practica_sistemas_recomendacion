@@ -59,6 +59,36 @@ def _log_phase_timing(
         print(f"[{variant_label}] {phase_name}: {elapsed_seconds:.2f}s")
 
 
+def _log_train_length_filter(
+    variant_label: str,
+    min_playlist_length_train: Optional[int],
+    max_playlist_length_train: Optional[int],
+    verbose: bool,
+) -> None:
+    """
+    Print the configured train-playlist length filter for one variant.
+
+    Parameters
+    ----------
+    variant_label:
+        Short label used to identify the experiment variant in logs.
+    min_playlist_length_train:
+        Optional lower bound applied to train playlists.
+    max_playlist_length_train:
+        Optional upper bound applied to train playlists.
+    verbose:
+        Whether progress logs are enabled.
+    """
+    if not verbose:
+        return
+
+    print(
+        f"[{variant_label}] Filtro train -> "
+        f"min_len={min_playlist_length_train} | "
+        f"max_len={max_playlist_length_train}"
+    )
+
+
 def _build_test_view_model(
     model: PureSVDRecommender,
     test_rows: List[int],
@@ -112,6 +142,8 @@ def run_variant_a(
     num_workers: int = 4,
     chunk_size: int = 250,
     top_k: int = 500,
+    min_playlist_length_train: Optional[int] = None,
+    max_playlist_length_train: Optional[int] = None,
     item_block_size: Optional[int] = 50_000,
     parallel_backend: Literal["thread", "process"] = "thread",
     verbose: bool = True,
@@ -140,6 +172,12 @@ def run_variant_a(
         Number of playlists processed by each worker task.
     top_k:
         Number of recommendations requested per playlist.
+    min_playlist_length_train:
+        Optional lower bound applied only to train playlists before building the
+        joint matrix.
+    max_playlist_length_train:
+        Optional upper bound applied only to train playlists before building the
+        joint matrix.
     item_block_size:
         Number of catalog items scored at once inside the recommender.
     parallel_backend:
@@ -157,6 +195,12 @@ def run_variant_a(
         print("\n" + "=" * 70)
         print("EJECUTANDO PURESVD - VARIANTE A (fit train + test)")
         print("=" * 70)
+    _log_train_length_filter(
+        variant_label="A",
+        min_playlist_length_train=min_playlist_length_train,
+        max_playlist_length_train=max_playlist_length_train,
+        verbose=verbose,
+    )
 
     start_time = time.time()
 
@@ -164,6 +208,10 @@ def run_variant_a(
     X_full, _, idx_to_track, playlist_id_to_row, _ = build_tracks_matrix(
         train_dir=train_dir,
         test_dir=test_dir,
+        min_playlist_length_train=min_playlist_length_train,
+        max_playlist_length_train=max_playlist_length_train,
+        min_playlist_length_test=None,
+        max_playlist_length_test=None,
         verbose=verbose,
     )
     build_time = time.time() - build_start
@@ -242,6 +290,8 @@ def run_variant_b(
     num_workers: int = 4,
     chunk_size: int = 250,
     top_k: int = 500,
+    min_playlist_length_train: Optional[int] = None,
+    max_playlist_length_train: Optional[int] = None,
     item_block_size: Optional[int] = 50_000,
     parallel_backend: Literal["thread", "process"] = "thread",
     verbose: bool = True,
@@ -270,6 +320,12 @@ def run_variant_b(
         Number of playlists processed by each worker task.
     top_k:
         Number of recommendations requested per playlist.
+    min_playlist_length_train:
+        Optional lower bound applied only to train playlists before building the
+        train matrix.
+    max_playlist_length_train:
+        Optional upper bound applied only to train playlists before building the
+        train matrix.
     item_block_size:
         Number of catalog items scored at once inside the recommender.
     parallel_backend:
@@ -287,6 +343,12 @@ def run_variant_b(
         print("\n" + "=" * 70)
         print("EJECUTANDO PURESVD - VARIANTE B (fit train + folding-in)")
         print("=" * 70)
+    _log_train_length_filter(
+        variant_label="B",
+        min_playlist_length_train=min_playlist_length_train,
+        max_playlist_length_train=max_playlist_length_train,
+        verbose=verbose,
+    )
 
     start_time = time.time()
 
@@ -294,6 +356,8 @@ def run_variant_b(
     X_train, track_to_idx, idx_to_track, _, _ = build_tracks_matrix(
         train_dir=train_dir,
         test_dir=None,
+        min_playlist_length_train=min_playlist_length_train,
+        max_playlist_length_train=max_playlist_length_train,
         verbose=verbose,
     )
 

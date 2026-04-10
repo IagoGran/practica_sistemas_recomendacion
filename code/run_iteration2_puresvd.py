@@ -17,12 +17,20 @@ def main() -> None:
     num_workers = 6
     chunk_size = 250
     top_k = 500
+    min_playlist_length_train = 15
+    max_playlist_length_train = 250
     item_block_size = 50_000
     parallel_backend = "thread"
     verbose = True
 
     input_playlists = load_playlists_from_file(test_input_file)
     print("Playlists test:", len(input_playlists))
+    if verbose:
+        print(
+            "Filtro de playlists train para PureSVD:",
+            f"min_len={min_playlist_length_train}",
+            f"max_len={max_playlist_length_train}",
+        )
 
     results_a, timings_a = run_variant_a(
         train_dir=train_dir,
@@ -33,6 +41,8 @@ def main() -> None:
         num_workers=num_workers,
         chunk_size=chunk_size,
         top_k=top_k,
+        min_playlist_length_train=min_playlist_length_train,
+        max_playlist_length_train=max_playlist_length_train,
         item_block_size=item_block_size,
         parallel_backend=parallel_backend,
         verbose=verbose,
@@ -58,6 +68,8 @@ def main() -> None:
         num_workers=num_workers,
         chunk_size=chunk_size,
         top_k=top_k,
+        min_playlist_length_train=min_playlist_length_train,
+        max_playlist_length_train=max_playlist_length_train,
         item_block_size=item_block_size,
         parallel_backend=parallel_backend,
         verbose=verbose,

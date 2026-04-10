@@ -10,7 +10,8 @@ import heapq
 
 def compute_track_frequencies(X: csr_matrix) -> np.ndarray:
     """
-    Dado la matriz Playlist-Track, devuelve un array con la frecuencia de cada track (número de playlists en las que aparece).
+    Dado la matriz Playlist-Track, devuelve un array con la frecuencia de cada track
+    (número de playlists en las que aparece).
     """
     return np.asarray(X.sum(axis=0)).ravel().astype(np.int32)
 
@@ -20,7 +21,8 @@ def _seed_tracks_to_indices(
     track_to_idx: Dict[str, int]
 ) -> List[int]:
     """
-    Dado un set de track URIs y el diccionario track_to_idx, devuelve la lista de índices de esos tracks que existen en track_to_idx.
+    Dado un set de track URIs y el diccionario track_to_idx,
+    devuelve la lista de índices de esos tracks que existen en track_to_idx.
     """
     return [track_to_idx[t] for t in seed_tracks if t in track_to_idx]
 
@@ -31,7 +33,8 @@ def _compute_seed_weight(
     n_playlists: int
 ) -> float:
     """
-    Calcula el peso de un track semilla basado en su frecuencia (IDF-like), para dar más importancia a tracks menos frecuentes.
+    Calcula el peso de un track semilla basado en su frecuencia (IDF-like),
+    para dar más importancia a tracks menos frecuentes.
     Si el track no aparece en ninguna playlist, devuelve 0.0.
     """
     df = track_freqs[seed_track_idx]
@@ -75,18 +78,15 @@ def extract_unique_seed_track_idxs(
 ) -> List[int]:
     """
     Dado una lista de playlists de entrada y el diccionario track_to_idx,
-    devuelve la lista ordenada de índices únicos de tracks que aparecen en las playlists de entrada y que existen en track_to_idx.
+    devuelve la lista ordenada de índices únicos de tracks
+    que aparecen en las playlists de entrada y que existen en track_to_idx.
     """
     unique_seed_track_idxs: Set[int] = set()
 
     for pl in input_playlists:
-
         for tr in pl.get("tracks", []):
-
             track_uri = tr.get("track_uri")
-
             if track_uri is not None and track_uri in track_to_idx:
-
                 unique_seed_track_idxs.add(track_to_idx[track_uri])
 
     return sorted(unique_seed_track_idxs)
@@ -104,8 +104,9 @@ def _collect_cooccurring_tracks_for_seed(
     min_cooccurrence: int = 2
 ) -> Dict[int, int]:
     """
-    Dado el índice de un track semilla, la matriz Playlist-Track y su transpuesta, y los parámetros de limitación,
-    devuelve un diccionario track_idx -> cooc_count para los tracks que coocurren con eltrack semilla en al menos min_cooccurrence playlists,
+    Dado el índice de un track semilla, la matriz Playlist-Track y su transpuesta,y los parámetros de limitación,
+    devuelve un diccionario track_idx -> cooc_count para los tracks que coocurren con el
+    track semilla en al menos min_cooccurrence playlists,
     considerando solo hasta max_playlists_per_seed_track playlists para el track semilla.
     """
     cooc_counts: Dict[int, int] = defaultdict(int)
@@ -126,23 +127,17 @@ def _collect_cooccurring_tracks_for_seed(
         )
 
     for row in playlist_rows:
-
         track_indices = X[row].indices
-
         for track_idx in track_indices:
-
             if track_idx != seed_track_idx:
-
                 cooc_counts[track_idx] += 1
 
     if min_cooccurrence > 1:
-
         cooc_counts = {
             track_idx: count
             for track_idx, count in cooc_counts.items()
             if count >= min_cooccurrence
         }
-
     return cooc_counts
 
 
@@ -205,7 +200,8 @@ def precompute_neighbors_for_seed_track(
     Dado el índice de un track semilla, las matrices Playlist-Track y su transpuesta,
     el array de frecuencias de tracks, y los parámetros de limitación,
     devuelve una lista de tuplas (track_idx, similitud) para los tracks vecinos del track semilla,
-    ordenados por similitud descendente, considerando solo los tracks que coocurren con el track semilla en al menos min_cooccurrence playlists,
+    ordenados por similitud descendente, considerando solo los tracks
+    que coocurren con el track semillaen al menos min_cooccurrence playlists,
     que tienen similitud coseno con el track semilla mayor o igual a min_similarity,
     y limitando a top_k_per_seed_track vecinos por track semilla si se especifica.
     """
@@ -231,7 +227,6 @@ def precompute_neighbors_for_seed_track(
         return []
 
     if top_k_per_seed_track is not None:
-
         ranked_local = heapq.nlargest(
             top_k_per_seed_track,
             local_scores.items(),
@@ -239,7 +234,6 @@ def precompute_neighbors_for_seed_track(
         )
 
     else:
-
         ranked_local = sorted(
             local_scores.items(),
             key=lambda x: x[1],
@@ -290,9 +284,7 @@ def init_worker_precompute(
 def process_seed_chunk(seed_chunk: List[int]):
 
     partial: Dict[int, List[Tuple[int, float]]] = {}
-
     for seed_track_idx in seed_chunk:
-
         neighbors = precompute_neighbors_for_seed_track(
             seed_track_idx,
             GP_X,
@@ -322,18 +314,13 @@ def _build_recommendations_from_scores(
 
     recs: List[str] = []
     already_added: Set[str] = set()
-
     ranked = heapq.nlargest(k, track_scores.items(), key=lambda x: x[1])
 
     for track_idx, _ in ranked:
-
         track_uri = idx_to_track[track_idx]
-
         if track_uri not in seed_tracks and track_uri not in already_added:
-
             recs.append(track_uri)
             already_added.add(track_uri)
-
         if len(recs) >= k:
             break
 
@@ -355,15 +342,12 @@ def recommend_from_precomputed_neighbors(
     seed_track_idxs = _seed_tracks_to_indices(seed_tracks, track_to_idx)
 
     if not seed_track_idxs:
-
         return _fill_with_popularity([], set(), seed_tracks, popularity_list, k)
 
     seed_track_idx_set = set(seed_track_idxs)
-
     track_scores: Dict[int, float] = defaultdict(float)
 
     for seed_track_idx in seed_track_idxs:
-
         neighbors = precomputed_neighbors.get(seed_track_idx)
 
         if not neighbors:
@@ -372,7 +356,6 @@ def recommend_from_precomputed_neighbors(
         seed_weight = 1.0
 
         if use_seed_idf_weight:
-
             seed_weight = _compute_seed_weight(
                 seed_track_idx,
                 track_freqs,
@@ -380,9 +363,7 @@ def recommend_from_precomputed_neighbors(
             )
 
         for neighbor_track_idx, score in neighbors:
-
             if neighbor_track_idx not in seed_track_idx_set:
-
                 track_scores[neighbor_track_idx] += seed_weight * score
 
     recs, already_added = _build_recommendations_from_scores(
